@@ -1,12 +1,12 @@
 {
-  "username": "postgres",
-  "password": "docker",
+  "username": "finapi",
+  "password": "finapi123",
 
   "name": "default",
   "type": "postgres",
-  "host": "localhost",
+  "host": "finapi_database",
   "port": 5432,
-  "database": "fin_api",
+  "database": "finapi_database",
   "entities": [
     "./src/modules/**/entities/*.ts"
   ],
