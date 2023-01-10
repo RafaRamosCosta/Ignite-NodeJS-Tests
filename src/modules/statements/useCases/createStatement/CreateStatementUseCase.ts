@@ -8,35 +8,75 @@ import { ICreateStatementDTO } from "./ICreateStatementDTO";
 @injectable()
 export class CreateStatementUseCase {
   constructor(
-    @inject('UsersRepository')
+    @inject("UsersRepository")
     private usersRepository: IUsersRepository,
 
-    @inject('StatementsRepository')
+    @inject("StatementsRepository")
     private statementsRepository: IStatementsRepository
   ) {}
 
-  async execute({ user_id, type, amount, description }: ICreateStatementDTO) {
+  async execute({
+    user_id,
+    type,
+    amount,
+    description,
+    recipient_id,
+    sender_id,
+  }: ICreateStatementDTO) {
     const user = await this.usersRepository.findById(user_id);
 
-    if(!user) {
+    if (!user) {
       throw new CreateStatementError.UserNotFound();
     }
 
-    if(type === 'withdraw') {
-      const { balance } = await this.statementsRepository.getUserBalance({ user_id });
+    if (type === "withdraw" || type === "transfer") {
+      const { balance } = await this.statementsRepository.getUserBalance({
+        user_id,
+      });
 
       if (balance < amount) {
-        throw new CreateStatementError.InsufficientFunds()
+        throw new CreateStatementError.InsufficientFunds();
       }
     }
 
-    const statementOperation = await this.statementsRepository.create({
-      user_id,
-      type,
-      amount,
-      description
-    });
+    const statementOperation = {
+      deposit: await this.statementsRepository.create({
+        user_id,
+        description,
+        amount,
+        type,
+      }),
+      withdraw: await this.statementsRepository.create({
+        user_id,
+        description,
+        amount: amount * -1,
+        type,
+      }),
+      transfer: async () => {
+        if (!recipient_id) throw new CreateStatementError.UserNotFound();
 
+        const recipient = await this.usersRepository.findById(recipient_id);
+
+        if (!recipient) throw new CreateStatementError.UserNotFound();
+
+        await this.statementsRepository.create({
+          user_id,
+          description,
+          amount: amount * -1,
+          type,
+        });
+
+        await this.statementsRepository.create({
+          user_id,
+          sender_id,
+          recipient_id,
+          description,
+          amount,
+          type,
+        });
+      },
+    }[type];
+    
     return statementOperation;
   }
 }
